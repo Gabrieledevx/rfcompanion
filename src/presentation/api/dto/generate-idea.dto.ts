@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
 
 export class GenerateIdeaDto {
     @IsString()
@@ -8,4 +8,8 @@ export class GenerateIdeaDto {
     @IsString()
     @IsNotEmpty()
     description!: string;
+
+    @IsOptional()
+    @IsDateString()
+    estimatedStartDate?: string;
 }

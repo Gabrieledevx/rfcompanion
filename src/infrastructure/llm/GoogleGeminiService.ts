@@ -4,12 +4,13 @@ import { ILLMService } from "../../domain/interfaces/ILLMService";
 import { config } from "../config/env";
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { ZodType } from "zod";
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 @Injectable()
 export class GoogleGeminiService implements ILLMService {
+    private readonly logger = new Logger(GoogleGeminiService.name);
     private model: ChatGoogleGenerativeAI;
 
     constructor() {
@@ -21,34 +22,70 @@ export class GoogleGeminiService implements ILLMService {
     }
 
     async generateResponse(prompt: string): Promise<string> {
-        console.log(`\n[LLM] 🤖 Preparando llamada a Gemini (Texto libre)...`);
-        console.log(`[LLM] 📄 Longitud del prompt: ${prompt.length} caracteres.`);
-        console.log(`[LLM] ⏳ Pausando por 5 segundos para respetar los límites de la API gratuita...`);
+        this.logger.debug(`[LLM] 🤖 Preparando llamada a Gemini (Texto libre)...`);
+        this.logger.debug(`[LLM] 📄 Longitud del prompt: ${prompt.length} caracteres.`);
+        this.logger.debug(`[LLM] ⏳ Pausando por 5 segundos para respetar los límites de la API gratuita...`);
         await delay(5000);
 
-        console.log(`[LLM] 🚀 Enviando petición...`);
+        this.logger.debug(`[LLM] 🚀 Enviando petición...`);
         const response = await this.model.invoke(prompt);
-        console.log(`[LLM] ✅ ¡Respuesta recibida!\n`);
+        this.logger.log(`[LLM] ✅ ¡Respuesta recibida!`);
 
         return typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
     }
 
-    async generateStructuredResponse<T>(prompt: string, schema: ZodType<T>): Promise<T> {
+    async generateStructuredResponse<T>(prompt: string, schema: ZodType<T>, onProgress?: (progress: number) => Promise<void>): Promise<T> {
         const parser = StructuredOutputParser.fromZodSchema(schema as any);
         const formatInstructions = parser.getFormatInstructions();
 
         const fullPrompt = `${prompt}\n\n${formatInstructions}`;
 
-        console.log(`\n[LLM] 🤖 Preparando llamada a Gemini (Estructurada/JSON)...`);
-        console.log(`[LLM] 📄 Longitud total del prompt + formato: ${fullPrompt.length} caracteres.`);
-        console.log(`[LLM] ⏳ Pausando por 10 segundos para respetar los límites de tokens por minuto de la API gratuita...`);
+        this.logger.debug(`[LLM] 🤖 Preparando llamada a Gemini (Estructurada/JSON)...`);
+        this.logger.debug(`[LLM] 📄 Longitud total del prompt + formato: ${fullPrompt.length} caracteres.`);
+
+        let currentProgress = 40;
+        let progressInterval: NodeJS.Timeout | null = null;
+
+        if (onProgress) {
+            // Simulamos el "pensamiento" de la IA asintóticamente (se frena al acercarse a 84%)
+            // Así nunca se estanca de golpe, siempre parece que avanza un "0.5%" u "1%" internamente.
+            progressInterval = setInterval(async () => {
+                const remaining = 84 - currentProgress;
+                if (remaining > 0) {
+                    // Avanzamos el 5% de la distancia restante cada segundo (mínimo 1%)
+                    const step = Math.max(1, Math.floor(remaining * 0.05));
+                    currentProgress += step;
+                    await onProgress(currentProgress);
+                }
+            }, 1500); // 1 tick cada 1.5 segundos
+        }
+
+        this.logger.debug(`[LLM] ⏳ Pausando por 10 segundos para respetar los límites de tokens por minuto de la API gratuita...`);
         await delay(10000);
 
-        console.log(`[LLM] 🚀 Enviando petición a gemini-2.5-flash...`);
-        const response = await this.model.invoke(fullPrompt);
-        console.log(`[LLM] ✅ ¡Respuesta estructurada recibida con éxito!\n`);
+        this.logger.debug(`[LLM] 🚀 Enviando petición a gemini-2.5-flash...`);
+        try {
+            const response = await this.model.invoke(fullPrompt);
 
-        const content = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
-        return (await parser.parse(content)) as T;
+            // Pausar o limpiar el tracking falso una vez que la IA termine
+            if (progressInterval) clearInterval(progressInterval);
+
+            this.logger.log(`[LLM] ✅ ¡Respuesta estructurada recibida con éxito!`);
+
+            let content = '';
+            if (typeof response.content === 'string') {
+                content = response.content;
+            } else if (Array.isArray(response.content)) {
+                content = response.content.map((c: any) => c.text || '').join('');
+            } else {
+                content = JSON.stringify(response.content);
+            }
+
+            return (await parser.parse(content)) as T;
+        } catch (error: any) {
+            if (progressInterval) clearInterval(progressInterval);
+            this.logger.error(`[LLM] ❌ Error estructurando la respuesta del LLM: ${error.message}`, error.stack);
+            throw error;
+        }
     }
 }

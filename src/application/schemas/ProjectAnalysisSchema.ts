@@ -28,6 +28,21 @@ export const ApiEndpointSchema = z.object({
     description: z.string().describe("What this endpoint does")
 });
 
+export const ModuleEstimationSchema = z.object({
+    moduleName: z.string().describe("Name of the module or epic (e.g. Authentication Module)"),
+    tasks: z.array(z.string()).describe("High-level breakdown of tasks required to complete this module"),
+    estimatedStoryPoints: z.number().describe("Estimated effort in Agile Story Points (e.g. 3, 5, 8...)"),
+    estimatedHours: z.number().describe("Estimated effort in hours")
+});
+
+export const SprintEstimationSchema = z.object({
+    sprintNumber: z.number().describe("The sprint cycle number (e.g. 1, 2)"),
+    sprintGoal: z.string().describe("The primary goal to achieve in this sprint"),
+    estimatedSprintStartDate: z.string().describe("Calculated Sprint Start Date (YYYY-MM-DD Date string)"),
+    estimatedSprintEndDate: z.string().describe("Calculated Sprint End Date (YYYY-MM-DD Date string)"),
+    modules: z.array(ModuleEstimationSchema).describe("List of modules/epics planned for this sprint")
+});
+
 export const ProjectAnalysisSchema = z.object({
     projectName: z.string().describe("Suggested name for the project"),
     actors: z.array(ActorSchema).describe("List of identified actors and stakeholders"),
@@ -45,6 +60,7 @@ export const ProjectAnalysisSchema = z.object({
     internationalization: z.array(z.string()).describe("i18n/l10n requirements, languages, timezone handling, and regional legal adaptations"),
     testingStrategy: z.array(z.string()).describe("QA methodology (Unit, Integration, E2E, UAT) with target coverages and frameworks"),
     securityAndVulnerabilityManagement: z.array(z.string()).describe("OWASP guidelines, SAST/DAST/SCA tooling in CI/CD, pentesting, and encryption rules"),
+    estimations: z.array(SprintEstimationSchema).describe("Scrum-based estimation broken down by sprints and modules with tasks, story points, and hour estimates")
 });
 
 export type ProjectAnalysisResult = z.infer<typeof ProjectAnalysisSchema>;

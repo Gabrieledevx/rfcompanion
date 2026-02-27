@@ -20,7 +20,7 @@ describe('GenerateRequirements Use Case', () => {
     it('should call llmService and return the structured analysis result', async () => {
         // Arrange
         const idea = new ProjectIdea('1', 'Test App', 'A test application description.');
-        const expectedResult: ProjectAnalysisResult = {
+        const expectedResult = {
             projectName: 'Test App',
             actors: [{ name: 'User', description: 'The main user' }],
             useCases: [
@@ -30,12 +30,31 @@ describe('GenerateRequirements Use Case', () => {
                     actors: ['User'],
                     preconditions: ['User must be registered'],
                     postconditions: ['User is authenticated'],
-                    mainFlow: ['User enters credentials', 'System validates', 'User logged in']
+                    mainFlow: ['User enters credentials', 'System validates', 'User logged in'],
+                    alternativeFlows: ['User uses SSO'],
+                    exceptionFlows: ['Invalid credentials'],
+                    acceptanceCriteria: ['Given valid creds, When login, Then success']
+                }
+            ],
+            estimations: [
+                {
+                    sprintNumber: 1,
+                    sprintGoal: 'Setup core boilerplate and auth',
+                    estimatedSprintStartDate: '2026-03-01',
+                    estimatedSprintEndDate: '2026-03-15',
+                    modules: [
+                        {
+                            moduleName: 'Authentication',
+                            tasks: ['Setup DB', 'Create Login Use Case', 'Add UI Routes'],
+                            estimatedStoryPoints: 5,
+                            estimatedHours: 20
+                        }
+                    ]
                 }
             ]
         };
 
-        mockLlmService.generateStructuredResponse.mockResolvedValue(expectedResult);
+        mockLlmService.generateStructuredResponse.mockResolvedValue(expectedResult as unknown as ProjectAnalysisResult);
 
         // Act
         const result = await useCase.execute(idea);
