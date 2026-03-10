@@ -16,7 +16,7 @@ export class GoogleGeminiService implements ILLMService {
     constructor() {
         this.model = new ChatGoogleGenerativeAI({
             apiKey: config.googleApiKey,
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             maxRetries: 3,
         });
     }
